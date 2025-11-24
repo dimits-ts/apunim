@@ -89,7 +89,9 @@ class TestAposterioriUnimodality(unittest.TestCase):
                 if c == "c1" and f == "A":
                     vals = self.rng.choice([1, 5], size=n_per_group)  # bimodal
                 elif c == "c1" and f == "B":
-                    vals = self.rng.choice([2, 4], size=n_per_group)  # shifted bimodal
+                    vals = self.rng.choice(
+                        [2, 4], size=n_per_group
+                    )  # shifted bimodal
                 elif c == "c2" and f == "A":
                     vals = self.rng.choice([2, 4], size=n_per_group)
                 else:  # c2, B
@@ -105,7 +107,6 @@ class TestAposterioriUnimodality(unittest.TestCase):
 
         for res in result.values():
             self.assertGreater(res.pvalue, 0.05)
-
 
     def test_multiple_comments_aggregation(self):
         # Some comments polarized, some not → allow NaNs
@@ -135,9 +136,24 @@ class TestAposterioriUnimodality(unittest.TestCase):
 
     def test_nan_annotations_handling(self):
         # Function should not crash. Result values may be nan.
-        annotations = [1, 2, np.nan, 3, 4, 5, 1, 2, 3, 4]
-        factor_group = ["A"] * 5 + ["B"] * 5
+        # We create polarization across both factor and comment dimensions.
+        annotations = [
+            1,
+            5,
+            1,
+            5,
+            1,  # comment c1, factor A/B alternates → bimodal
+            5,
+            1,
+            5,
+            1,
+            5,  # comment c2, factor A/B alternates → bimodal
+        ]
+        factor_group = ["A", "B"] * 5  # alternate factor groups
         comment_group = ["c1"] * 5 + ["c2"] * 5
+
+        # insert a NaN in annotations to test filtering
+        annotations[2] = np.nan
 
         result = aposteriori_unimodality(
             annotations, factor_group, comment_group, num_bins=5
@@ -146,6 +162,8 @@ class TestAposterioriUnimodality(unittest.TestCase):
         self.assertEqual(set(result.keys()), {"A", "B"})
         for v in result.values():
             self.assertIsInstance(v, ApunimResult)
+            self.assertIsInstance(v.apunim, float)
+            self.assertIsInstance(v.pvalue, float)
 
     def test_non_numeric_annotations_raise(self):
         annotations = ["a", "b", "c"]

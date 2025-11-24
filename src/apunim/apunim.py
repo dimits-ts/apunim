@@ -163,6 +163,12 @@ def aposteriori_unimodality(
     comment_group: NDArray[Any] = np.array(comment_group)
     all_factors = _unique(factor_group)
 
+    # Remove NaN annotations and corresponding factor/comment entries
+    valid_mask = ~np.isnan(annotations)
+    annotations = annotations[valid_mask]
+    factor_group = factor_group[valid_mask]
+    comment_group = comment_group[valid_mask]
+
     # Identify comments with actual polarization
     valid_comments = _get_valid_comments(
         annotations=annotations,
@@ -382,7 +388,7 @@ def _comment_is_valid(
 ) -> bool:
     """
     A comment is valid if:
-      1. It shows polarization (DFU > 0)
+      1. It shows polarization (DFU > 0.01)
       2. It has at least two distinct annotator groups
     """
 
