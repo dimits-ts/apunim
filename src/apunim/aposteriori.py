@@ -1,3 +1,26 @@
+"""
+Implements both the (normalized/un-normalzied) Distance From Unimodality 
+statistic, as well as the Aposteriori Unimodality (Apunim) statistic.
+"""
+
+# Apunim: Attributing polarization to sociodemographic groups
+# Copyright (C) 2025 Dimitris Tsirmpas
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# You may contact the author at dim.tsirmpas@aueb.gr
+
 from typing import TypeVar, Iterable, Any
 from collections.abc import Collection
 import warnings
