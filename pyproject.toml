@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "apunim"
+version = "1.0.0"
+authors = [
+  { name="Dimitris Tsirmpas", email="dim.tsirmpas@aueb.gr" },
+]
+description = "Polarization attribution in annotation tasks"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Framework :: Sphinx",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Typing :: Typed",
+    "Intended Audience :: Science/Research"
+]
+license = "GPL-3.0"
+license-files = ["LICEN[CS]E*"]
+dependencies = ["statsmodels", "scipy", "numpy"]
+
+keywords = [
+  "annotation", 
+  "socio-demographic",
+  "background",
+  "annotators",
+  "polarization",
+  "disagreemnt"
+]
+
+[project.urls]
+Homepage = "https://github.com/dimits-ts/apunim"
+Issues = "https://github.com/dimits-ts/apunim/issues"
