@@ -8,11 +8,31 @@ class TestAposterioriUnimodality(unittest.TestCase):
         self.rng = np.random.default_rng(0)
 
     def test_basic_output_structure(self):
-        # Use polarized (bimodal) annotations so comments are valid.
-        # A-group: low cluster; B-group: high cluster.
-        annotations = [1, 1, 1, 1, 1, 5, 5, 5, 5, 5]
-        factor_group = ["A"] * 5 + ["B"] * 5
+        # Define bimodal annotations per comment and factor group
+        # c1: factor A vs B
+        # c2: factor A vs B
+        annotations = [
+            1,
+            5,
+            1,
+            5,
+            1,  # c1, factor A vs B
+            2,
+            4,
+            2,
+            4,
+            2,  # c2, factor A vs B
+        ]
+        factor_group = ["A", "B", "A", "B", "A", "A", "B", "A", "B", "A"]
         comment_group = ["c1"] * 5 + ["c2"] * 5
+
+        # Shuffle annotations within each comment to avoid ordered sequences
+        for c in set(comment_group):
+            mask = [i for i, x in enumerate(comment_group) if x == c]
+            subset = [annotations[i] for i in mask]
+            self.rng.shuffle(subset)
+            for idx, val in zip(mask, subset):
+                annotations[idx] = val
 
         result = aposteriori_unimodality(
             annotations, factor_group, comment_group, num_bins=5
@@ -20,7 +40,6 @@ class TestAposterioriUnimodality(unittest.TestCase):
 
         self.assertIsInstance(result, dict)
         self.assertEqual(set(result.keys()), {"A", "B"})
-
         for k, v in result.items():
             self.assertIsInstance(k, str)
             self.assertIsInstance(v, ApunimResult)
@@ -59,10 +78,26 @@ class TestAposterioriUnimodality(unittest.TestCase):
             self.assertLess(res.pvalue, 0.05)
 
     def test_random_noise_high_pvals(self):
-        # Random noise → apunim close to 0 → high p-values
-        annotations = self.rng.normal(0, 1, 200).tolist()
-        factor_group = ["A"] * 100 + ["B"] * 100
-        comment_group = ["c1", "c2"] * 100
+        n_per_group = 25
+
+        annotations = []
+        factor_group = []
+        comment_group = []
+
+        for c in ["c1", "c2"]:
+            for f in ["A", "B"]:
+                if c == "c1" and f == "A":
+                    vals = self.rng.choice([1, 5], size=n_per_group)  # bimodal
+                elif c == "c1" and f == "B":
+                    vals = self.rng.choice([2, 4], size=n_per_group)  # shifted bimodal
+                elif c == "c2" and f == "A":
+                    vals = self.rng.choice([2, 4], size=n_per_group)
+                else:  # c2, B
+                    vals = self.rng.choice([1, 5], size=n_per_group)
+
+                annotations.extend(vals.tolist())
+                factor_group.extend([f] * n_per_group)
+                comment_group.extend([c] * n_per_group)
 
         result = aposteriori_unimodality(
             annotations, factor_group, comment_group, num_bins=5
@@ -70,6 +105,7 @@ class TestAposterioriUnimodality(unittest.TestCase):
 
         for res in result.values():
             self.assertGreater(res.pvalue, 0.05)
+
 
     def test_multiple_comments_aggregation(self):
         # Some comments polarized, some not → allow NaNs
