@@ -41,3 +41,6 @@ keywords = [
 [project.urls]
 Homepage = "https://github.com/dimits-ts/apunim"
 Issues = "https://github.com/dimits-ts/apunim/issues"
+
+[tool.setuptools.packages.find]
+where = ["src/apunim"]

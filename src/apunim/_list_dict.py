@@ -54,7 +54,7 @@ class _ListDict(Generic[K, V]):
 
     def items(self) -> list[tuple[K, list[V]]]:
         return self.dict.items()
-    
+
     def add_dict(self, new_stats: dict[K, V]):
         """
         Update the _ListDict with at most one extra value per factor, keeping
