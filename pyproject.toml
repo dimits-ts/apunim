@@ -38,6 +38,9 @@ keywords = [
   "disagreemnt"
 ]
 
+[project.optional-dependencies]
+dev = ["sphinx", "sphinx_rtd_theme"]
+
 [project.urls]
 Homepage = "https://github.com/dimits-ts/apunim"
 Issues = "https://github.com/dimits-ts/apunim/issues"
