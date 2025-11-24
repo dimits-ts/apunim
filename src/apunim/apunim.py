@@ -14,24 +14,66 @@ from . import _list_dict
 
 FactorType = TypeVar("FactorType")
 ApunimResult = namedtuple("ApunimResult", ["apunim", "pvalue"])
+"""
+Container for the result of the Aposteriori Unimodality (AP-Unimodality) test
+for a single factor level.
+
+Attributes:
+    apunim (float): The AP-unimodality statistic for the factor.
+        - apunim > 0: Increased polarization due to group differences.
+        - apunim < 0: Decreased polarization due to group differences.
+        - apunim ≈ 0: Polarization explained by chance.
+        NaN indicates that the statistic could not be computed.
+    pvalue (float): The p-value associated with the AP-unimodality statistic.
+        Reflects the statistical significance of the observed polarization
+        relative to randomized partitions. NaN indicates p-value could not
+        be computed.
+"""
 
 
 # code adapted from John Pavlopoulos
 # https://github.com/ipavlopoulos/ndfu/blob/main/src/__init__.py
 def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
     """
-    Computes the Distance From Unimodality measure for a list of annotations
-    :param: x: a sequence of annotations, not necessarily discrete
+    Compute the Distance From Unimodality (DFU) for a sequence of annotations.
+
+    DFU measures how much a distribution deviates from being unimodal. The
+    normalized DFU (nDFU) rescales the value to the range [0, 1].
+
+    - DFU/nDFU = 0 indicates a unimodal or flat distribution.
+    - Higher DFU/nDFU values indicate stronger multimodality or polarization.
+    - nDFU = 1 indicates the maximum possible polarization.
+
+    :param x: Sequence of annotation values (e.g., ratings, scores). Values
+        need not be discrete, but discrete annotations should use a number
+        of bins equal to the number of distinct values.
     :type x: Collection[float]
-    :param bins: number of bins. If data is discrete, it is advisable to use
-        the number of modes. Example: An annotation task in the 1-5 LIKERT
-        scale should use 5 bins.
+    :param bins: Number of bins to use for histogramming. For discrete data,
+        it is recommended to use the number of distinct annotation levels.
     :type bins: int
-    :param normalized: set to true to normalize the measure to the [0,1] range
-        (normalized Distance From Unimodality - nDFU)
+    :param normalized: If True, returns the normalized DFU (nDFU). If False,
+        returns the raw DFU.
     :type normalized: bool
-    :raises ValueError: if input_data is empty or number of bins is less than 1
-    :return: the DFU score of the sequence
+    :raises ValueError:
+        - If `x` is empty.
+        - If `bins` < 2.
+    :return: DFU or normalized DFU (nDFU) statistic for the sequence.
+    :rtype: float
+
+    .. note::
+        DFU is computed based on the maximum difference between the histogram
+        peak and its neighbors. For details on the methodology and usage, see
+        the original paper:
+        `Pavlopoulos and Likas, 2024
+        <https://aclanthology.org/2024.eacl-long.117/>`.
+
+    .. seealso::
+        - :func:`aposteriori_unimodality` for testing group-level polarization
+          using DFU/nDFU.
+
+    .. rubric:: Credits
+        Original code and concept adapted from John Pavlopoulos:
+        https://github.com/ipavlopoulos/ndfu
     """
     if bins <= 1:
         raise ValueError("Number of bins must be at least two.")
@@ -42,7 +84,7 @@ def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
     pos_max = np.argmax(hist)
 
     # right search
-    right_diffs = hist[pos_max + 1:] - hist[pos_max:-1]
+    right_diffs = hist[pos_max +1 :] - hist[pos_max:-1]
     max_rdiff = right_diffs.max(initial=0)
 
     # left search
@@ -64,37 +106,44 @@ def aposteriori_unimodality(
     num_bins: int | None = None,
     iterations: int = 100,
     alpha: float | None = 0.05,
-    pvalue_estimation: str = "both",
     two_sided: bool = True,
     seed: int | None = None,
 ) -> dict[FactorType, ApunimResult]:
     """
-    Perform the Aposteriori Unimodality Test to identify whether any annotator
-    group, defined by a particular Socio-Demographic Beackground (SDB)
-    attribute (e.g., gender, age), contributes significantly to the observed
-    polarization in a discussion.
+    Perform the Aposteriori Unimodality (apunim) test for group-wise
+    polarization.
 
-    This method tests whether partitioning annotations by a specific factor
-    (such as gender or age group) systematically reduces within-group
-    polarization (as measured by Distance from Unimodality, DFU), relative to
-    the global polarization.
+    This test evaluates whether differences between annotator groups
+    (e.g., gender, age) contribute significantly to the polarization observed
+    in a discussion, as measured by Distance From Unimodality (DFU).
+
+    The test compares the observed DFU of each factor level to the distribution
+    of DFU values obtained by randomly partitioning annotations according to
+    group sizes (apriori randomization). The apunim statistic
+    quantifies the relative increase or decrease in polarization attributable
+    to group differences.
+
+    Generally:
+    - apunim > 0: increased polarization due to group differences.
+    - apunim < 0: decreased polarization due to group differences.
+    - apunim ≈ 0: polarization explained by chance.
 
     :param annotations:
         A list of annotation scores, where each element corresponds to an
         annotation (e.g., a toxicity score) made by an annotator.
         Needs not be discrete.
-    :type annotations: list[float]
+    :type annotations: Collection[float]
     :param factor_group:
         A list indicating the group assignment (e.g., 'male', 'female') of
         the annotator who produced each annotation. For example, if two
         annotations were made by a male and female annotator respectively,
         the provided factor_group would be ["male", "female"].
         female annotator
-    :type factor_group: list[`FactorType`]
+    :type factor_group: Collection[`FactorType`]
     :param comment_group:
         A list of comment identifiers, where each element associates an
         annotation with a specific comment in the discussion.
-    :type comment_group: list[`FactorType`]
+    :type comment_group: Collection[`FactorType`]
     :param num_bins:
         The number of bins to use when computing the DFU polarization metric.
         If data is discrete, it is advisable to use the number of modes.
@@ -112,50 +161,42 @@ def aposteriori_unimodality(
         The target statistical significance. Used to apply pvalue correction
         for multiple comparisons. None to disable pvalue corrections.
     :type alpha: float | None
-    :param pvalue_estimation:
-        Which pvalue estimation method to use.
-        "parametric", "non parametric", "both" or "none"
-    :type pvalue_estimation: str
     :param two_sided:
         Whether the statistical tests run for both less and
         greater polarization, or just greater.
     :type two_sided: bool
     :param seed: The random seed used, None for non-deterministic outputs.
     :type seed: int | None
-    :returns:
-        A dictionary containing the apunim result ("apunim"),
-        the parametric p-value ("p_param")
-        and non-parametric p-value ("p_nonparam"),
-        depending on the pvalue_estimation parameter.
-        If apunim~=0, the polarization can be explained by chance.
-        If apunim>0, increased polarization can not be explained by chance,
-        but rather must be partially caused by differences between
-        the sociodemographic groups.
-        If apunim<0, the decrease in polarization is partially caused by
-        differences between the sociodemographic groups.
-    :rtype: dict[str, dict[FactorType, float]]
+    :return: Dictionary mapping factor levels to ApunimResult namedtuples
+        containing:
+          - apunim: AP-unimodality statistic for the factor
+          - pvalue: p-value from the selected estimation method
+    :rtype: dict[FactorType, ApunimResult]
     :raises ValueError:
-        If the given lists are not the same length, are empty,
-        are comprised of a single group, or a single comment.
+        - If input lists differ in length.
+        - If `annotations` is empty.
+        - If `factor_group` has fewer than 2 unique groups.
+        - If `comment_group` has fewer than 2 unique comments.
+        - If `iterations` < 1.
+        - If `num_bins` < 2.
+        - If `alpha` is not in the range [0,1].
+        - If no valid polarized comments are found
+            (all DFU ≤ 0.01 or fewer than 2 annotator groups per comment).
+        - If `_apriori_polarization_stat` finds inconsistent
+            group sizes vs. annotations.
 
     .. seealso::
         - :func:`dfu` - Computes the Distance from Unimodality.
 
     .. note::
         The test is relatively robust even with a small number of annotations
-        per comment. The pvalue estimation is non-parametric.
+        per comment. The pvalue estimation is parametric.
     """
     rng = np.random.default_rng(seed=seed)
     bins = num_bins if num_bins is not None else len(_unique(annotations))
 
     _validate_input(
-        annotations,
-        factor_group,
-        comment_group,
-        iterations,
-        bins,
-        alpha,
-        pvalue_estimation,
+        annotations, factor_group, comment_group, iterations, bins, alpha
     )
 
     annotations = np.array(annotations)
@@ -343,7 +384,6 @@ def _validate_input(
     iterations: int,
     bins: int,
     alpha: float | None,
-    pvalue_estimation: str,
 ) -> None:
     if not (len(annotations) == len(annotator_group) == len(comment_group)):
         raise ValueError(
@@ -371,12 +411,6 @@ def _validate_input(
 
     if bins < 2:
         raise ValueError("Number of bins has to be at least 2.")
-
-    valid = ["parametric", "non parametric", "both", "none"]
-    if pvalue_estimation not in valid:
-        raise ValueError(
-            "pvalue_estimation must be one of the following: ", valid
-        )
     if alpha is not None and (alpha < 0 or alpha > 1):
         raise ValueError("Alpha should be between 0 and 1.")
 
