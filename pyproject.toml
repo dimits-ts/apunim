@@ -39,7 +39,7 @@ keywords = [
 ]
 
 [project.optional-dependencies]
-dev = ["sphinx", "furo"]
+dev = ["sphinx", "furo", "build", "twine"]
 
 [project.urls]
 Homepage = "https://github.com/dimits-ts/apunim"
