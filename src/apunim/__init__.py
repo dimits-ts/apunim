@@ -30,8 +30,7 @@ Attributes:
         relative to randomized partitions. NaN indicates p-value could not
         be computed.
 .. seealso::
-    - :func:`aposteriori_unimodality` for testing group-level polarization
-        using DFU/nDFU.
+    - :func:`aposteriori_unimodality` for testing group-level polarization using DFU/nDFU.
 """
 
 
@@ -58,9 +57,7 @@ def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
     :param normalized: If True, returns the normalized DFU (nDFU). If False,
         returns the raw DFU.
     :type normalized: bool
-    :raises ValueError:
-        - If `x` is empty.
-        - If `bins` < 2.
+    :raises ValueError: If `x` is empty or`bins` < 2.
     :return: DFU or normalized DFU (nDFU) statistic for the sequence.
     :rtype: float
 
@@ -68,16 +65,15 @@ def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
         DFU is computed based on the maximum difference between the histogram
         peak and its neighbors. For details on the methodology and usage, see
         the original paper:
-        `Pavlopoulos and Likas, 2024
-        <https://aclanthology.org/2024.eacl-long.117/>`.
+        `Pavlopoulos and Likas 2024 <https://aclanthology.org/2024.eacl-long.117/>`_.
 
     .. seealso::
         - :func:`aposteriori_unimodality` for testing group-level polarization
           using DFU/nDFU.
 
     .. rubric:: Credits
-    Original code and concept adapted from John Pavlopoulos:
-    https://github.com/ipavlopoulos/ndfu
+        Original code and concept adapted from John Pavlopoulos:
+        https://github.com/ipavlopoulos/ndfu
     """
     if bins <= 1:
         raise ValueError("Number of bins must be at least two.")
@@ -119,7 +115,7 @@ def aposteriori_unimodality(
 
     This test evaluates whether differences between annotator groups
     (e.g., gender, age) contribute significantly to the polarization observed
-    in a discussion, as measured by Distance From Unimodality (DFU).
+    in a dataset, as measured by Distance From Unimodality (DFU).
 
     The test compares the observed DFU of each factor level to the distribution
     of DFU values obtained by randomly partitioning annotations according to
@@ -142,7 +138,6 @@ def aposteriori_unimodality(
         the annotator who produced each annotation. For example, if two
         annotations were made by a male and female annotator respectively,
         the provided factor_group would be ["male", "female"].
-        female annotator
     :type factor_group: Collection[`FactorType`]
     :param comment_group:
         A list of comment identifiers, where each element associates an
@@ -167,14 +162,12 @@ def aposteriori_unimodality(
     :type alpha: float | None
     :param two_sided:
         Whether the statistical tests run for both less and
-        greater polarization, or just greater.
+        greater polarization, or just greater. Defaults to True.
     :type two_sided: bool
     :param seed: The random seed used, None for non-deterministic outputs.
     :type seed: int | None
     :return: Dictionary mapping factor levels to ApunimResult namedtuples
-        containing:
-          - apunim: AP-unimodality statistic for the factor
-          - pvalue: p-value from the selected estimation method
+        containing: the apunim value and its pvalue
     :rtype: dict[FactorType, ApunimResult]
     :raises ValueError:
         - If input lists differ in length.
@@ -190,11 +183,12 @@ def aposteriori_unimodality(
             group sizes vs. annotations.
 
     .. seealso::
+        - :class:`ApunimResult` - Return type.
         - :func:`dfu` - Computes the Distance from Unimodality.
 
     .. note::
         The test is relatively robust even with a small number of annotations
-        per comment. The pvalue estimation is parametric.
+        per comment. The pvalue estimation is parametric (Student-t test).
     """
     rng = np.random.default_rng(seed=seed)
     bins = num_bins if num_bins is not None else len(_unique(annotations))
@@ -565,7 +559,7 @@ def _aposteriori_polarization_stat(
     randomized_dfus: list[list[float]],
 ) -> float:
     """
-    Compute AP-unimodality statistic and p-value.
+    Compute the apunim statistic and p-value.
     """
     if len(observed_dfus) == 0 or np.all(np.isnan(observed_dfus)):
         return np.nan
