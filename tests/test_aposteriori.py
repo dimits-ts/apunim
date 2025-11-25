@@ -1,83 +1,115 @@
 import unittest
 import numpy as np
-
-from src.aposteriori import (
-    _factor_polarization_stat,
-    _raw_significance,
-    _correct_significance,
-    aposteriori_unimodality,
-)
+from apunim import aposteriori_unimodality, ApunimResult
 
 
 class TestAposterioriUnimodality(unittest.TestCase):
-
     def setUp(self):
-        self.rng = np.random.default_rng(42)
+        self.rng = np.random.default_rng(0)
 
-    def test_output_is_dict(self):
-        annotations = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
-        factor_group = ["A"] * 5 + ["B"] * 5
+    def test_basic_output_structure(self):
+        # Define bimodal annotations per comment and factor group
+        # c1: factor A vs B
+        # c2: factor A vs B
+        annotations = [
+            1,
+            5,
+            1,
+            5,
+            1,  # c1, factor A vs B
+            2,
+            4,
+            2,
+            4,
+            2,  # c2, factor A vs B
+        ]
+        factor_group = ["A", "B", "A", "B", "A", "A", "B", "A", "B", "A"]
         comment_group = ["c1"] * 5 + ["c2"] * 5
+
+        # Shuffle annotations within each comment to avoid ordered sequences
+        for c in set(comment_group):
+            mask = [i for i, x in enumerate(comment_group) if x == c]
+            subset = [annotations[i] for i in mask]
+            self.rng.shuffle(subset)
+            for idx, val in zip(mask, subset):
+                annotations[idx] = val
+
         result = aposteriori_unimodality(
-            annotations, factor_group, comment_group, bins=5
+            annotations, factor_group, comment_group, num_bins=5
         )
+
         self.assertIsInstance(result, dict)
-        for key, value in result.items():
-            self.assertIsInstance(key, str)
-            self.assertIsInstance(value, float)
-
-    def test_output_keys_match_factor_values(self):
-        annotations = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
-        factor_group = ["A"] * 5 + ["B"] * 5
-        comment_group = ["c1"] * 5 + ["c2"] * 5
-        result = aposteriori_unimodality(
-            annotations, factor_group, comment_group, bins=5
-        )
         self.assertEqual(set(result.keys()), {"A", "B"})
+        for k, v in result.items():
+            self.assertIsInstance(k, str)
+            self.assertIsInstance(v, ApunimResult)
+            self.assertIsInstance(v.apunim, float)
+            self.assertIsInstance(v.pvalue, float)
 
-    def test_empty_inputs_raise_value_error(self):
+    def test_empty_inputs(self):
         with self.assertRaises(ValueError):
-            aposteriori_unimodality([], [], [], bins=5)
+            aposteriori_unimodality([], [], [], num_bins=5)
 
-    def test_mismatched_lengths_raise_value_error(self):
+    def test_mismatched_lengths(self):
+        with self.assertRaises(ValueError):
+            aposteriori_unimodality([1, 2], ["A"], ["c1", "c2"], num_bins=5)
+
+    def test_single_factor_group(self):
+        # Implementation requires ≥2 groups
         annotations = [1, 2, 3]
-        factor_group = ["A", "B"]
-        comment_group = ["c1", "c1", "c1"]
+        factor_group = ["solo"] * 3
+        comment_group = ["c1", "c2", "c3"]
         with self.assertRaises(ValueError):
             aposteriori_unimodality(
-                annotations, factor_group, comment_group, bins=5
+                annotations, factor_group, comment_group, num_bins=5
             )
 
-    def test_single_group_raise_value_error(self):
-        annotations = [1, 2, 3, 4, 5]
-        factor_group = ["solo"] * 5
-        comment_group = ["c1"] * 5
-        with self.assertRaises(ValueError):
-            aposteriori_unimodality(
-                annotations, factor_group, comment_group, bins=5
-            )
-
-    def test_partitioned_bimodal_data_low_pvalue(self):
+    def test_bimodal_partition_low_pvals(self):
+        # Strong separation should create high apunim and low p-values
         annotations = [1] * 50 + [5] * 50
-        factor_group = ["left"] * 50 + ["right"] * 50
-        comment_group = ["c1"] * 25 + ["c2"] * 25 + ["c1"] * 25 + ["c2"] * 25
-        result = aposteriori_unimodality(
-            annotations, factor_group, comment_group, bins=5
-        )
-        for group, p in result.items():
-            self.assertLess(p, 0.05)
+        factor_group = ["L"] * 50 + ["R"] * 50
+        comment_group = ["c1", "c2"] * 50
 
-    def test_random_noise_returns_high_pvalues(self):
-        annotations = self.rng.normal(loc=3, scale=1, size=100).tolist()
-        factor_group = ["X"] * 50 + ["Y"] * 50
-        comment_group = ["c1"] * 25 + ["c2"] * 25 + ["c1"] * 25 + ["c2"] * 25
         result = aposteriori_unimodality(
-            annotations, factor_group, comment_group, bins=5
+            annotations, factor_group, comment_group, num_bins=5
         )
-        for group, p in result.items():
-            self.assertGreater(p, 0.05)
 
-    def test_multiple_comments_are_aggregated(self):
+        for res in result.values():
+            self.assertLess(res.pvalue, 0.05)
+
+    def test_random_noise_high_pvals(self):
+        n_per_group = 25
+
+        annotations = []
+        factor_group = []
+        comment_group = []
+
+        for c in ["c1", "c2"]:
+            for f in ["A", "B"]:
+                if c == "c1" and f == "A":
+                    vals = self.rng.choice([1, 5], size=n_per_group)  # bimodal
+                elif c == "c1" and f == "B":
+                    vals = self.rng.choice(
+                        [2, 4], size=n_per_group
+                    )  # shifted bimodal
+                elif c == "c2" and f == "A":
+                    vals = self.rng.choice([2, 4], size=n_per_group)
+                else:  # c2, B
+                    vals = self.rng.choice([1, 5], size=n_per_group)
+
+                annotations.extend(vals.tolist())
+                factor_group.extend([f] * n_per_group)
+                comment_group.extend([c] * n_per_group)
+
+        result = aposteriori_unimodality(
+            annotations, factor_group, comment_group, num_bins=5
+        )
+
+        for res in result.values():
+            self.assertGreater(res.pvalue, 0.05)
+
+    def test_multiple_comments_aggregation(self):
+        # Some comments polarized, some not → allow NaNs
         annotations = [1, 5, 1, 5, 1, 5, 2, 4, 2, 4]
         factor_group = ["A", "B"] * 5
         comment_group = [
@@ -92,149 +124,56 @@ class TestAposterioriUnimodality(unittest.TestCase):
             "c5",
             "c5",
         ]
+
         result = aposteriori_unimodality(
-            annotations, factor_group, comment_group, bins=5
-        )
-        self.assertEqual(set(result.keys()), {"A", "B"})
-        self.assertTrue(
-            all(np.isnan(p) or 0 <= p <= 1 for p in result.values())
+            annotations, factor_group, comment_group, num_bins=5
         )
 
-
-class TestPolarizationStat(unittest.TestCase):
-
-    def test_basic_functionality(self):
-        annotations = np.array([1, 2, 3, 1, 2, 3])
-        groups = np.array(["A", "A", "A", "B", "B", "B"])
-        result = _factor_polarization_stat(annotations, groups, bins=3)
-        self.assertIsInstance(result, dict)
         self.assertEqual(set(result.keys()), {"A", "B"})
-        for val in result.values():
-            self.assertIsInstance(val, float)
+        for res in result.values():
+            self.assertIsInstance(res, ApunimResult)
+            self.assertTrue(np.isnan(res.pvalue) or 0 <= res.pvalue <= 1)
 
-    def test_single_group(self):
-        annotations = np.array([1, 1, 1])
-        groups = np.array(["A", "A", "A"])
-        result = _factor_polarization_stat(annotations, groups, bins=3)
-        self.assertEqual(set(result.keys()), {"A"})
+    def test_nan_annotations_handling(self):
+        # Function should not crash. Result values may be nan.
+        # We create polarization across both factor and comment dimensions.
+        annotations = [
+            1,
+            5,
+            1,
+            5,
+            1,  # comment c1, factor A/B alternates → bimodal
+            5,
+            1,
+            5,
+            1,
+            5,  # comment c2, factor A/B alternates → bimodal
+        ]
+        factor_group = ["A", "B"] * 5  # alternate factor groups
+        comment_group = ["c1"] * 5 + ["c2"] * 5
 
-    def test_all_same_annotation(self):
-        annotations = np.array([2, 2, 2, 2])
-        groups = np.array(["X", "Y", "X", "Y"])
-        result = _factor_polarization_stat(annotations, groups, bins=3)
-        self.assertEqual(set(result.keys()), {"X", "Y"})
-        for val in result.values():
-            self.assertIsInstance(val, float)
+        # insert a NaN in annotations to test filtering
+        annotations[2] = np.nan
 
-    def test_empty_input(self):
-        annotations = np.array([])
-        groups = np.array([])
-        with self.assertRaises(ValueError):
-            _factor_polarization_stat(annotations, groups, bins=3)
+        result = aposteriori_unimodality(
+            annotations, factor_group, comment_group, num_bins=5
+        )
 
-    def test_mismatched_lengths(self):
-        annotations = np.array([1, 2])
-        groups = np.array(["A"])
-        with self.assertRaises(ValueError):
-            _factor_polarization_stat(annotations, groups, bins=2)
-
-    def test_bins_parameter_effect(self):
-        annotations = np.array([1, 2, 3, 4])
-        groups = np.array(["A", "A", "B", "B"])
-        # Make sure it runs and output stays valid for different bin values
-        for bins in [2, 3, 4]:
-            result = _factor_polarization_stat(annotations, groups, bins=bins)
-            self.assertEqual(set(result.keys()), {"A", "B"})
-            for val in result.values():
-                self.assertIsInstance(val, float)
-
-
-class TestRawSignificance(unittest.TestCase):
-
-    def test_output_type_and_keys(self):
-        global_ndfus = {"A": 0.2, "B": 0.3}
-        stats_by_factor = {"A": [0.3, 0.35], "B": [0.1, 0.15]}
-        result = _raw_significance(global_ndfus, stats_by_factor)
-        self.assertIsInstance(result, dict)
         self.assertEqual(set(result.keys()), {"A", "B"})
-        for val in result.values():
-            self.assertIsInstance(val, float)
+        for v in result.values():
+            self.assertIsInstance(v, ApunimResult)
+            self.assertIsInstance(v.apunim, float)
+            self.assertIsInstance(v.pvalue, float)
 
-    def test_empty_inputs(self):
-        global_ndfus = {}
-        stats_by_factor = {}
-        result = _raw_significance(global_ndfus, stats_by_factor)
-        self.assertEqual(result, {})
+    def test_non_numeric_annotations_raise(self):
+        annotations = ["a", "b", "c"]
+        factor_group = ["A"] * 3
+        comment_group = ["c1", "c2", "c3"]
 
-    def test_only_one_factor(self):
-        global_ndfus = {"A": 0.15}
-        stats_by_factor = {"A": [0.25, 0.3]}
-        result = _raw_significance(global_ndfus, stats_by_factor)
-        self.assertEqual(set(result.keys()), {"A"})
-        self.assertIsInstance(result["A"], float)
-
-    def test_mismatched_distribution_sizes(self):
-        global_ndfus = {"A": 0.1, "B": 0.35}
-        stats_by_factor = {"A": [0.1, 0.2, 0.3]}  # "B" is missing
-        _raw_significance(global_ndfus, stats_by_factor)  # shouldn't crash
-
-    def test_constant_global_distribution(self):
-        global_ndfus = {"A": 0.3, "B": 0.3}
-        stats_by_factor = {"A": [0.3, 0.4], "B": [0.2, 0.1]}
-        result = _raw_significance(global_ndfus, stats_by_factor)
-        self.assertTrue(all(isinstance(val, float) for val in result.values()))
-
-    def test_nan_or_invalid_values(self):
-        global_ndfus = {"A": 0.3, "B": float("nan")}
-        stats_by_factor = {"A": [0.3, 0.4], "B": [0.2, 0.1]}
-        with self.assertRaises(ValueError):
-            _raw_significance(global_ndfus, stats_by_factor)
-
-
-class TestCorrectSignificance(unittest.TestCase):
-
-    def test_output_format_and_keys(self):
-        raw_pvals = {"A": 0.01, "B": 0.04, "C": 0.2}
-        result = _correct_significance(raw_pvals)
-        self.assertIsInstance(result, dict)
-        self.assertEqual(set(result.keys()), {"A", "B", "C"})
-        for val in result.values():
-            self.assertIsInstance(val, float)
-
-    def test_correction_is_applied(self):
-        raw_pvals = {"A": 0.01, "B": 0.02, "C": 0.03}
-        result = _correct_significance(raw_pvals, alpha=0.05)
-        for key in result:
-            self.assertGreaterEqual(result[key], raw_pvals[key])
-
-    def test_alpha_parameter_does_not_affect_output_values(self):
-        # Alpha often affects decision thresholds, not p-value correction
-        # itself
-        raw_pvals = {"A": 0.01, "B": 0.04}
-        result1 = _correct_significance(raw_pvals, alpha=0.05)
-        result2 = _correct_significance(raw_pvals, alpha=0.01)
-        self.assertEqual(result1, result2)
-
-    def test_edge_case_all_zeros(self):
-        raw_pvals = {"X": 0.0, "Y": 0.0}
-        result = _correct_significance(raw_pvals)
-        for val in result.values():
-            self.assertEqual(val, 0.0)
-
-    def test_edge_case_all_ones(self):
-        raw_pvals = {"X": 1.0, "Y": 1.0}
-        result = _correct_significance(raw_pvals)
-        for val in result.values():
-            self.assertEqual(val, 1.0)
-
-    def test_invalid_pvalue_range(self):
-        raw_pvals = {"X": -0.1, "Y": 1.2}
-        with self.assertRaises(ValueError):
-            _correct_significance(raw_pvals)
-
-    def test_empty_input(self):
-        result = _correct_significance({})
-        self.assertEqual(result, {})
+        with self.assertRaises(Exception):
+            aposteriori_unimodality(
+                annotations, factor_group, comment_group, num_bins=5
+            )
 
 
 if __name__ == "__main__":
