@@ -13,7 +13,7 @@ from . import _list_dict
 
 
 FactorType = TypeVar("FactorType")
-ApunimResult = namedtuple("ApunimResult", ["apunim", "pvalue"])
+ApunimResult = namedtuple("ApunimResult", ["apunim", "pvalue", "support"])
 """
 Container for the result of the Aposteriori Unimodality (apunim) test
 for a single factor level.
@@ -29,6 +29,8 @@ Attributes:
         Reflects the statistical significance of the observed polarization
         relative to randomized partitions. NaN indicates p-value could not
         be computed.
+
+    support (int): The number of observations (annotations) for the factor.
 .. seealso::
     - :func:`aposteriori_unimodality` for testing group-level polarization using DFU/nDFU.
 """
@@ -84,12 +86,12 @@ def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
     pos_max = np.argmax(hist)
 
     # right search
-    right_diffs = hist[pos_max + 1:] - hist[pos_max:-1]
+    right_diffs = hist[pos_max + 1 :] - hist[pos_max:-1]
     max_rdiff = right_diffs.max(initial=0)
 
     # left search
     if pos_max > 0:
-        left_diffs = hist[0:pos_max] - hist[1: pos_max + 1]
+        left_diffs = hist[0:pos_max] - hist[1 : pos_max + 1]
         max_ldiff = left_diffs[left_diffs > 0].max(initial=0)
     else:
         max_ldiff = 0
@@ -230,22 +232,25 @@ def aposteriori_unimodality(
         valid_comments,
     )
 
-    observed_dfu_dict, apriori_dfu_dict = _compute_dfu_distributions(
-        valid_comments,
-        annotations,
-        factor_group,
-        comment_group,
-        all_factors,
-        bins,
-        iterations,
-        rng,
+    observed_dfu_dict, apriori_dfu_dict, support_dict = (
+        _compute_dfu_distributions(
+            valid_comments,
+            annotations,
+            factor_group,
+            comment_group,
+            all_factors,
+            bins,
+            iterations,
+            rng,
+        )
     )
 
     results = _compute_factor_results(
-        observed_dfu_dict,
-        apriori_dfu_dict,
-        all_factors,
-        two_sided,
+        observed_dfu_dict=observed_dfu_dict,
+        apriori_dfu_dict=apriori_dfu_dict,
+        support_dict=support_dict,
+        all_factors=all_factors,
+        two_sided=two_sided,
     )
 
     # Apply p-value correction if needed
@@ -281,14 +286,22 @@ def _compute_dfu_distributions(
     bins,
     iterations,
     rng,
-):
+) -> tuple[
+    _list_dict._ListDict[FactorType, int],
+    _list_dict._ListDict[FactorType, int],
+    dict[FactorType, int],
+]:
     observed_dfu_dict = _list_dict._ListDict()
     apriori_dfu_dict = _list_dict._ListDict()
+    support_dict = {f: 0 for f in all_factors}
 
     for curr_comment in valid_comments:
         mask = comment_group == curr_comment
         comment_ann = annotations[mask]
         comment_groups = factor_group[mask]
+
+        for f in all_factors:
+            support_dict[f] += int(np.count_nonzero(comment_groups == f))
 
         # counts per factor
         lengths_by_factor = {
@@ -312,12 +325,13 @@ def _compute_dfu_distributions(
             )
         )
 
-    return observed_dfu_dict, apriori_dfu_dict
+    return observed_dfu_dict, apriori_dfu_dict, support_dict
 
 
 def _compute_factor_results(
     observed_dfu_dict,
     apriori_dfu_dict,
+    support_dict,
     all_factors,
     two_sided,
 ):
@@ -335,7 +349,9 @@ def _compute_factor_results(
             two_sided=two_sided,
         )
 
-        results[factor] = ApunimResult(apunim=apunim, pvalue=pvalue)
+        results[factor] = ApunimResult(
+            apunim=apunim, pvalue=pvalue, support=support_dict[factor]
+        )
 
     return results
 
@@ -347,7 +363,7 @@ def _correct_pvalues(results, alpha):
     corrected = _apply_correction_to_results(pvals, alpha)
 
     return {
-        f: ApunimResult(r.apunim, cp)
+        f: ApunimResult(r.apunim, cp, r.support)
         for f, r, cp in zip(factors, result_objs, corrected)
     }
 
