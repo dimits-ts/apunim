@@ -15,8 +15,6 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
 
       - name: Install dependencies
         run: |
@@ -33,3 +31,4 @@ jobs:
           publish_dir: ./docs/build/html
           publish_branch: gh-pages
           force_orphan: true
+          nojekyll: true        # <-- disables Jekyll
