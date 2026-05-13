@@ -11,9 +11,9 @@ sys.path.insert(0, os.path.abspath('../../src'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Apunim'
-copyright = '2025, Dimitris Tsirmpas'
+copyright = '2026, Dimitris Tsirmpas'
 author = 'Dimitris Tsirmpas'
-release = '1.0.1'
+release = '1.0.2'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -30,4 +30,4 @@ exclude_patterns = []
 
 html_theme = 'furo'
 html_static_path = ['_static']
-html_favicon = "apunim_logo.svg"
+html_favicon = "logo.svg"
