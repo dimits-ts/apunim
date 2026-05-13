@@ -549,18 +549,18 @@ def _aposteriori_polarization_stat(
     randomized_dfus: list[list[float]],
 ) -> float:
     """
-    Compute the apunim statistic and p-value.
+    Compute the apunim statistic.
+    E_f is the minimum polarization observed across all random partitions,
+    representing the baseline (floor) polarization attributable to chance.
     """
     if len(observed_dfus) == 0 or np.all(np.isnan(observed_dfus)):
         return np.nan
 
     O_f = np.nanmean(observed_dfus)
 
-    # expected mean from randomizations
-    # filters out all-nan expected values which may crop up
-    means = [_safe_nanmean(r) for r in randomized_dfus]
-    means = [m for m in means if not np.isnan(m)]
-    if len(means) == 0:
+    mins = [_safe_nanmean(r) for r in randomized_dfus]
+    mins = [m for m in mins if not np.isnan(m)]
+    if len(mins) == 0:
         warnings.warn(
             "Apunim statistic is NaN because all randomized DFU estimates "
             "were NaN. This typically means that randomized groups were empty "
@@ -569,7 +569,7 @@ def _aposteriori_polarization_stat(
         )
         return np.nan
 
-    E_f = np.mean(means)
+    E_f = np.min(mins)
     if np.isclose(E_f, 1, atol=10e-3):
         warnings.warn(
             "Estimated polarization is very close to max. "
