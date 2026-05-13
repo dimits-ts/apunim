@@ -9,22 +9,24 @@ class TestAposterioriUnimodality(unittest.TestCase):
 
     def test_basic_output_structure(self):
         # Define bimodal annotations per comment and factor group
-        # c1: factor A vs B
-        # c2: factor A vs B
+        # c1: factor A=[1,1,1], B=[5,5,5] → strongly polarized
+        # c2: factor A=[2,2,2], B=[4,4,4] → polarized
         annotations = [
             1,
-            5,
+            1,
             1,
             5,
-            1,  # c1, factor A vs B
+            5,
+            5,  # c1: A vs B
+            2,
+            2,
             2,
             4,
-            2,
             4,
-            2,  # c2, factor A vs B
+            4,  # c2: A vs B
         ]
-        factor_group = ["A", "B", "A", "B", "A", "A", "B", "A", "B", "A"]
-        comment_group = ["c1"] * 5 + ["c2"] * 5
+        factor_group = ["A", "A", "A", "B", "B", "B"] * 2
+        comment_group = ["c1"] * 6 + ["c2"] * 6
 
         # Shuffle annotations within each comment to avoid ordered sequences
         for c in set(comment_group):
@@ -110,25 +112,46 @@ class TestAposterioriUnimodality(unittest.TestCase):
 
     def test_multiple_comments_aggregation(self):
         # Some comments polarized, some not → allow NaNs
-        annotations = [1, 5, 1, 5, 1, 5, 2, 4, 2, 4]
-        factor_group = ["A", "B"] * 5
-        comment_group = [
-            "c1",
-            "c1",
-            "c2",
-            "c2",
-            "c3",
-            "c3",
-            "c4",
-            "c4",
-            "c5",
-            "c5",
+        # Each group (A/B) has 3 annotations per comment to satisfy the >= 3 threshold
+        annotations = [
+            1,
+            1,
+            1,
+            5,
+            5,
+            5,  # c1: A=[1,1,1], B=[5,5,5] → polarized
+            1,
+            1,
+            1,
+            5,
+            5,
+            5,  # c2: A=[1,1,1], B=[5,5,5] → polarized
+            2,
+            2,
+            2,
+            4,
+            4,
+            4,  # c3: A=[2,2,2], B=[4,4,4] → mildly polarized
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,  # c4: A=[3,3,3], B=[3,3,3] → not polarized
+            2,
+            2,
+            2,
+            3,
+            3,
+            3,  # c5: A=[2,2,2], B=[3,3,3] → not polarized
         ]
-
+        factor_group = ["A", "A", "A", "B", "B", "B"] * 5
+        comment_group = (
+            ["c1"] * 6 + ["c2"] * 6 + ["c3"] * 6 + ["c4"] * 6 + ["c5"] * 6
+        )
         result = aposteriori_unimodality(
             annotations, factor_group, comment_group, num_bins=5
         )
-
         self.assertEqual(set(result.keys()), {"A", "B"})
         for res in result.values():
             self.assertIsInstance(res, ApunimResult)
@@ -136,29 +159,29 @@ class TestAposterioriUnimodality(unittest.TestCase):
 
     def test_nan_annotations_handling(self):
         # Function should not crash. Result values may be nan.
-        # We create polarization across both factor and comment dimensions.
+        # Each group has 3+ annotations per comment; one NaN is inserted to test filtering.
         annotations = [
             1,
-            5,
+            1,
             1,
             5,
-            1,  # comment c1, factor A/B alternates → bimodal
             5,
+            5,  # c1: A=[1,1,1], B=[5,5,5] → bimodal
+            1,
+            1,
             1,
             5,
-            1,
-            5,  # comment c2, factor A/B alternates → bimodal
+            5,
+            5,  # c2: A=[1,1,1], B=[5,5,5] → bimodal
         ]
-        factor_group = ["A", "B"] * 5  # alternate factor groups
-        comment_group = ["c1"] * 5 + ["c2"] * 5
-
-        # insert a NaN in annotations to test filtering
-        annotations[2] = np.nan
-
+        factor_group = ["A", "A", "A", "B", "B", "B"] * 2
+        comment_group = ["c1"] * 6 + ["c2"] * 6
+        # insert a NaN to test filtering; group A in c1 still has 2 valid annotations
+        # but c2 remains fully valid to keep the test meaningful
+        annotations[1] = np.nan
         result = aposteriori_unimodality(
             annotations, factor_group, comment_group, num_bins=5
         )
-
         self.assertEqual(set(result.keys()), {"A", "B"})
         for v in result.values():
             self.assertIsInstance(v, ApunimResult)

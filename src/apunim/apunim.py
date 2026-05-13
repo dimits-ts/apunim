@@ -148,7 +148,8 @@ def aposteriori_unimodality(
     comment_group = comment_group[valid_mask]
 
     # Identify comments with actual polarization
-    valid_comments = _get_valid_comments(
+    # Replace the _get_valid_comments call:
+    valid_comments, eligible_factors_per_comment = _get_valid_comments(
         annotations=annotations,
         comment_group=comment_group,
         factor_group=factor_group,
@@ -169,16 +170,26 @@ def aposteriori_unimodality(
         valid_comments,
     )
 
+    # Recompute all_factors to only include those eligible in at least one comment
+    all_factors_eligible = list(
+        dict.fromkeys(
+            f
+            for factors in eligible_factors_per_comment.values()
+            for f in factors
+        )
+    )
+
     observed_dfu_dict, apriori_dfu_dict, support_dict = (
         _compute_dfu_distributions(
             valid_comments,
             annotations,
             factor_group,
             comment_group,
-            all_factors,
+            all_factors_eligible,
             bins,
             iterations,
             rng,
+            eligible_factors_per_comment,
         )
     )
 
@@ -186,7 +197,7 @@ def aposteriori_unimodality(
         observed_dfu_dict=observed_dfu_dict,
         apriori_dfu_dict=apriori_dfu_dict,
         support_dict=support_dict,
-        all_factors=all_factors,
+        all_factors=all_factors_eligible,
         two_sided=two_sided,
     )
 
@@ -223,6 +234,7 @@ def _compute_dfu_distributions(
     bins,
     iterations,
     rng,
+    eligible_factors_per_comment: dict[Any, list[Any]],  # NEW
 ) -> tuple[
     _list_dict._ListDict[FactorType, int],
     _list_dict._ListDict[FactorType, int],
@@ -237,24 +249,27 @@ def _compute_dfu_distributions(
         comment_ann = annotations[mask]
         comment_groups = factor_group[mask]
 
-        for f in all_factors:
-            support_dict[f] += int(np.count_nonzero(comment_groups == f))
+        # Restrict to eligible factors for this comment
+        eligible = eligible_factors_per_comment[curr_comment]
+        eligible_mask = np.isin(comment_groups, eligible)
+        comment_ann_elig = comment_ann[eligible_mask]
+        comment_groups_elig = comment_groups[eligible_mask]
 
-        # counts per factor
+        for f in eligible:
+            support_dict[f] += int(np.count_nonzero(comment_groups_elig == f))
+
         lengths_by_factor = {
-            factor: int(np.count_nonzero(comment_groups == factor))
-            for factor in all_factors
+            factor: int(np.count_nonzero(comment_groups_elig == factor))
+            for factor in eligible
         }
 
-        # observed DFUs
         observed_dfu_dict.add_dict(
-            _factor_dfu_stat(comment_ann, comment_groups, bins=bins)
+            _factor_dfu_stat(comment_ann_elig, comment_groups_elig, bins=bins)
         )
 
-        # randomized apriori DFUs
         apriori_dfu_dict.add_dict(
             _apriori_polarization_stat(
-                annotations=comment_ann,
+                annotations=comment_ann_elig,
                 group_sizes=lengths_by_factor,
                 bins=bins,
                 iterations=iterations,
@@ -310,13 +325,27 @@ def _get_valid_comments(
     comment_group: NDArray[np.int64],
     factor_group: NDArray[Any],
     bins: int,
-) -> list[int]:
-    # --- FIRST LOOP: Identify valid comments ---
+) -> tuple[list[int], dict[Any, list[Any]]]:
+    """
+    Returns:
+        valid_comments: list of comment IDs that pass the validity check
+        eligible_factors_per_comment: dict mapping comment_id -> list of
+            eligible factor levels (those with >= 3 annotations)
+    """
     valid_comments = []
+    eligible_factors_per_comment: dict[Any, list[Any]] = {}
+
     for curr_comment_id in _unique(comment_group):
         is_in_curr_comment = comment_group == curr_comment_id
         all_comment_annotations = annotations[is_in_curr_comment]
         comment_annotator_groups = factor_group[is_in_curr_comment]
+
+        eligible_factors = [
+            f
+            for f in _unique(comment_annotator_groups)
+            if _is_not_none(f)
+            and int(np.count_nonzero(comment_annotator_groups == f)) >= 3
+        ]
 
         if len(all_comment_annotations) > 0 and _comment_is_valid(
             comment_annotations=all_comment_annotations,
@@ -324,8 +353,9 @@ def _get_valid_comments(
             bins=bins,
         ):
             valid_comments.append(curr_comment_id)
+            eligible_factors_per_comment[curr_comment_id] = eligible_factors
 
-    return valid_comments
+    return valid_comments, eligible_factors_per_comment
 
 
 def _validate_input(
@@ -373,22 +403,29 @@ def _comment_is_valid(
 ) -> bool:
     """
     A comment is valid if:
-      1. It shows polarization (DFU > 0.01)
-      2. It has at least two distinct annotator groups
+      1. At least one annotator group has >= 3 annotations
+      2. It shows polarization (DFU > 0.01) among the eligible groups
     """
+    groups = np.array([x for x in comment_annotator_groups if _is_not_none(x)])
+    annotations = np.array(comment_annotations)
 
-    # --- Check for polarization ---
+    eligible_factors = [
+        f for f in _unique(groups) if int(np.count_nonzero(groups == f)) >= 3
+    ]
+
+    if len(eligible_factors) == 0:
+        return False
+
+    eligible_mask = np.isin(groups, eligible_factors)
+    eligible_annotations = annotations[eligible_mask]
+
     has_polarization = not np.isclose(
-        dfu(comment_annotations, bins=bins, normalized=True),
+        dfu(eligible_annotations, bins=bins, normalized=True),
         0,
         atol=0.01,
     )
 
-    # --- annotator groups ---
-    groups = [x for x in comment_annotator_groups if _is_not_none(x)]
-    sufficient_groups = len(_unique(groups)) >= 2
-
-    return has_polarization and sufficient_groups
+    return has_polarization
 
 
 def _factor_dfu_stat(
