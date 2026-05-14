@@ -1,7 +1,7 @@
 Apunim: Attributing polarization to sociodemographic groups
 ===========================================================
 
-.. image:: apunim_logo.svg
+.. image:: logo.svg
 
 Annotators disagree with each other all the time. The reasons may be:
 
