@@ -1,9 +1,5 @@
-"""
-Small helper class to be used internally in Apunim.
-"""
-
-# Apunim: Attributing polarization to sociodemographic groups
-# Copyright (C) 2025 Dimitris Tsirmpas
+# Apunim: Quantifying and attributing polarization to annotator groups.
+# Copyright (C) 2026 Dimitris Tsirmpas
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,6 +15,10 @@ Small helper class to be used internally in Apunim.
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # You may contact the author at dim.tsirmpas@aueb.gr
+
+"""
+Small helper class to be used internally in Apunim.
+"""
 
 from typing import TypeVar, Generic
 import json
