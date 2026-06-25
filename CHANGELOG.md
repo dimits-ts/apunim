@@ -1,5 +1,8 @@
 # What's new
 
+### 1.0.3 (25/06/2026)
+- Fix bug causing program crashes when Nones were introduced in the input of the `aposteriori_unimodality` function.
+
 ### 1.0.2 (14/05/2026)
 - Expose only public API
 - Improve internal filtering of non-applicable comments
