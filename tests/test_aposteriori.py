@@ -198,6 +198,206 @@ class TestAposterioriUnimodality(unittest.TestCase):
                 annotations, factor_group, comment_group, num_bins=5
             )
 
+    def test_none_in_factor_group_single_comment(self):
+        """
+        Regression test: None in factor_group caused IndexError in _comment_is_valid
+        due to groups array being shorter than annotations array after None filtering.
+        """
+        annotations = [
+            1,
+            1,
+            1,
+            5,
+            5,  # c1: A=[1,1,1], B=[5,5]
+            1,
+            1,
+            1,
+            5,
+            5,
+            5,
+        ]  # c2: A=[1,1,1], B=[5,5,5]
+        factor_group = [
+            "A",
+            "A",
+            "A",
+            "B",
+            None,  # c1: one None in factor_group
+            "A",
+            "A",
+            "A",
+            "B",
+            "B",
+            "B",
+        ]
+        comment_group = ["c1"] * 5 + ["c2"] * 6
+
+        # Should not raise IndexError
+        result = aposteriori_unimodality(
+            annotations, factor_group, comment_group, num_bins=5
+        )
+        self.assertIsInstance(result, dict)
+        for v in result.values():
+            self.assertIsInstance(v, ApunimResult)
+
+    def test_nan_in_factor_group_single_comment(self):
+        """
+        Regression test: NaN float in factor_group caused IndexError in _comment_is_valid.
+        NaN factor labels are treated the same as None by _is_not_none.
+        """
+        annotations = [
+            1,
+            1,
+            1,
+            5,
+            5,  # c1: one NaN factor label
+            1,
+            1,
+            1,
+            5,
+            5,
+            5,
+        ]  # c2: clean
+        factor_group = [
+            "A",
+            "A",
+            "A",
+            "B",
+            float("nan"),
+            "A",
+            "A",
+            "A",
+            "B",
+            "B",
+            "B",
+        ]
+        comment_group = ["c1"] * 5 + ["c2"] * 6
+
+        result = aposteriori_unimodality(
+            annotations, factor_group, comment_group, num_bins=5
+        )
+        self.assertIsInstance(result, dict)
+        for v in result.values():
+            self.assertIsInstance(v, ApunimResult)
+
+    def test_multiple_nones_in_factor_group(self):
+        """
+        Multiple None factor labels across different comments; each None widens
+        the size gap between groups and annotations, making the crash more likely.
+        """
+        annotations = [1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5, 5]  # c1  # c2
+        factor_group = [
+            None,
+            "A",
+            "A",
+            "B",
+            None,
+            "B",  # c1: 2 Nones
+            "A",
+            "A",
+            "A",
+            "A",
+            "B",
+            None,
+        ]  # c2: 1 None
+        comment_group = ["c1"] * 6 + ["c2"] * 6
+
+        result = aposteriori_unimodality(
+            annotations, factor_group, comment_group, num_bins=5
+        )
+        self.assertIsInstance(result, dict)
+
+    def test_none_in_factor_group_preserves_valid_results(self):
+        """
+        None labels should be silently dropped; the remaining annotations
+        should still produce meaningful (non-NaN) apunim values when the
+        surviving groups are strongly polarized and meet the >= 3 threshold.
+        """
+        # c1/c2: after dropping the None, A has 3 and B has 3 annotations → valid
+        annotations = [
+            1,
+            1,
+            1,
+            5,
+            5,
+            5,
+            float("nan"),  # c1: 7 entries, last is NaN annotation
+            1,
+            1,
+            1,
+            5,
+            5,
+            5,
+            2,
+        ]  # c2: 7 entries, last has None factor
+        factor_group = [
+            "A",
+            "A",
+            "A",
+            "B",
+            "B",
+            "B",
+            "A",
+            "A",
+            "A",
+            "A",
+            "B",
+            "B",
+            "B",
+            None,
+        ]
+        comment_group = ["c1"] * 7 + ["c2"] * 7
+
+        result = aposteriori_unimodality(
+            annotations, factor_group, comment_group, num_bins=5
+        )
+        self.assertEqual(set(result.keys()), {"A", "B"})
+        for v in result.values():
+            self.assertFalse(
+                np.isnan(v.apunim),
+                "Expected valid apunim after dropping None/NaN entries",
+            )
+
+    def test_none_only_comment_does_not_crash(self):
+        """
+        A comment where every factor label is None should be skipped entirely,
+        not cause a crash. The other valid comment keeps the test from raising
+        'No polarized comments found'.
+        """
+        annotations = [
+            1,
+            1,
+            1,
+            5,
+            5,
+            5,  # c1: all None factors
+            1,
+            1,
+            1,
+            5,
+            5,
+            5,
+        ]  # c2: normal
+        factor_group = [
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            "A",
+            "A",
+            "A",
+            "B",
+            "B",
+            "B",
+        ]
+        comment_group = ["c1"] * 6 + ["c2"] * 6
+
+        result = aposteriori_unimodality(
+            annotations, factor_group, comment_group, num_bins=5
+        )
+        self.assertIsInstance(result, dict)
+
 
 if __name__ == "__main__":
     unittest.main()

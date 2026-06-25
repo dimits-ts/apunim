@@ -406,8 +406,13 @@ def _comment_is_valid(
       1. At least one annotator group has >= 3 annotations
       2. It shows polarization (DFU > 0.01) among the eligible groups
     """
-    groups = np.array([x for x in comment_annotator_groups if _is_not_none(x)])
     annotations = np.array(comment_annotations)
+    raw_groups = np.array(comment_annotator_groups, dtype=object)
+
+    # Filter both arrays together
+    valid_mask = np.array([_is_not_none(x) for x in raw_groups])
+    groups = raw_groups[valid_mask]
+    annotations = annotations[valid_mask]  # ← keep in sync
 
     eligible_factors = [
         f for f in _unique(groups) if int(np.count_nonzero(groups == f)) >= 3
@@ -417,7 +422,7 @@ def _comment_is_valid(
         return False
 
     eligible_mask = np.isin(groups, eligible_factors)
-    eligible_annotations = annotations[eligible_mask]
+    eligible_annotations = annotations[eligible_mask]  # shapes now match
 
     has_polarization = not np.isclose(
         dfu(eligible_annotations, bins=bins, normalized=True),
