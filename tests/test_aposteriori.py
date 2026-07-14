@@ -302,7 +302,7 @@ class TestAposterioriUnimodality(unittest.TestCase):
         Multiple None factor labels across different comments; each None widens
         the size gap between groups and annotations, making the crash more likely.
         """
-        annotations = [1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5, 5]  # c1  # c2
+        annotations = [1, 1, 2, 2, 1, 1, 5, 4, 4, 5, 5, 5]  # c1  # c2
         factor_group = [
             None,
             "A",

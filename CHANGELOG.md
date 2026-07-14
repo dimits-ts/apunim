@@ -1,5 +1,8 @@
 # What's new
 
+### 1.0.4 (14/07/2026)
+- Invert sign of apunim statistic
+
 ### 1.0.3 (25/06/2026)
 - Fix bug causing program crashes when Nones were introduced in the input of the `aposteriori_unimodality` function.
 
@@ -12,5 +15,4 @@
 - Linked documentation in README for better accessibility.
 
 ## 1.0.0 (24/11/2025)
-
 - Initial release
