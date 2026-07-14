@@ -608,7 +608,7 @@ def _aposteriori_polarization_stat(
         )
         return np.nan
 
-    apunim = (O_f - E_f) / (1.0 - E_f)
+    apunim = (E_f - O_f) / (1.0 - E_f)
     return float(apunim)
 
 
