@@ -1,3 +1,21 @@
+# Apunim: Quantifying and attributing polarization to annotator groups.
+# Copyright (C) 2026 Dimitris Tsirmpas
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# You may contact the author at dim.tsirmpas@aueb.gr
+
 import warnings
 import math
 from collections import namedtuple
@@ -406,12 +424,14 @@ def _comment_is_valid(
       1. At least two annotator groups each have >= 3 annotations
       2. It shows polarization (DFU > 0.01) among those eligible groups
     """
+    groups = np.array([x for x in comment_annotator_groups if _is_not_none(x)])
     annotations = np.array(comment_annotations)
-    groups = np.array(comment_annotator_groups)
+    raw_groups = np.array(comment_annotator_groups, dtype=object)
 
-    valid_mask = np.array([_is_not_none(g) for g in groups])
-    annotations = annotations[valid_mask]
-    groups = groups[valid_mask]
+    # Filter both arrays together
+    valid_mask = np.array([_is_not_none(x) for x in raw_groups])
+    groups = raw_groups[valid_mask]
+    annotations = annotations[valid_mask]  # keep in sync
 
     eligible_factors = [
         f for f in _unique(groups)
@@ -422,7 +442,7 @@ def _comment_is_valid(
         return False
 
     eligible_mask = np.isin(groups, eligible_factors)
-    eligible_annotations = annotations[eligible_mask]
+    eligible_annotations = annotations[eligible_mask]  # shapes now match
 
     has_polarization = not np.isclose(
         dfu(eligible_annotations, bins=bins, normalized=True),
