@@ -24,5 +24,5 @@ from .apunim import aposteriori_unimodality, ApunimResult
 from .dfu import dfu
 
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 __all__ = ["ApunimResult", "aposteriori_unimodality", "dfu"]
