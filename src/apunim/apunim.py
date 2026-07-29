@@ -438,7 +438,7 @@ def _comment_is_valid(
         if int(np.count_nonzero(groups == f)) >= 3
     ]
 
-    if len(eligible_factors) < 2:
+    if len(eligible_factors) == 0:
         return False
 
     eligible_mask = np.isin(groups, eligible_factors)
