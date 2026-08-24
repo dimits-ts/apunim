@@ -24,7 +24,11 @@ from numpy.typing import NDArray
 
 # code adapted from John Pavlopoulos
 # https://github.com/ipavlopoulos/ndfu/blob/main/src/__init__.py
-def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
+def dfu(
+    x: Collection[float],
+    bins: int | Collection[float],
+    normalized: bool = True,
+) -> float:
     """
     Compute the Distance From Unimodality (DFU) for a sequence of annotations.
 
@@ -39,9 +43,20 @@ def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
         need not be discrete, but discrete annotations should use a number
         of bins equal to the number of distinct values.
     :type x: Collection[float]
-    :param bins: Number of bins to use for histogramming. For discrete data,
-        it is recommended to use the number of distinct annotation levels.
-    :type bins: int
+    :param bins: Either the number of bins, or an explicit sequence of bin
+        edges. For discrete data, use the number of distinct annotation
+        levels.
+
+        .. warning::
+            When an integer is given, the bins are spread over the range of
+            ``x`` *itself*. Two samples drawn from the same scale therefore
+            get different bin grids whenever they span different ranges, and
+            a sample that does not reach both ends of the scale acquires
+            empty bins between populated ones, which DFU reads as
+            multimodality. Pass explicit edges (e.g.
+            ``np.linspace(scale_min, scale_max, n_levels + 1)``) whenever DFU
+            values are to be compared across samples.
+    :type bins: int | Collection[float]
     :param normalized: If True, returns the normalized DFU (nDFU). If False,
         returns the raw DFU.
     :type normalized: bool
@@ -64,8 +79,11 @@ def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
         Original code and concept adapted from John Pavlopoulos:
         https://github.com/ipavlopoulos/ndfu
     """
-    if bins <= 1:
-        raise ValueError("Number of bins must be at least two.")
+    if np.ndim(bins) == 0:
+        if bins <= 1:
+            raise ValueError("Number of bins must be at least two.")
+    elif len(bins) < 3:
+        raise ValueError("At least three bin edges (two bins) are required.")
 
     hist = _to_hist(x, bins=bins)
 
@@ -88,11 +106,11 @@ def dfu(x: Collection[float], bins: int, normalized: bool = True) -> float:
     return float(dfu_stat)
 
 
-def _to_hist(scores: Collection[float], bins: int) -> NDArray:
+def _to_hist(scores: Collection[float], bins: int | Collection[float]) -> NDArray:
     """
     Creates a normalised histogram. Used for DFU calculation.
     :param: scores: the ratings (not necessarily discrete)
-    :param: num_bins: the number of bins to create
+    :param: bins: bin count, or an explicit sequence of bin edges
     :param: normed: whether to normalise the counts or not, by default true
     :return: the histogram
     """

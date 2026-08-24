@@ -148,11 +148,25 @@ def aposteriori_unimodality(
         per comment. The pvalue estimation is parametric (Student-t test).
     """
     rng = np.random.default_rng(seed=seed)
-    bins = num_bins if num_bins is not None else len(_unique(annotations))
+    n_bins = num_bins if num_bins is not None else len(_unique(annotations))
 
     _validate_input(
-        annotations, factor_group, comment_group, iterations, bins, alpha
+        annotations, factor_group, comment_group, iterations, n_bins, alpha
     )
+
+    # A single bin grid, fixed over the whole annotation scale, shared by every
+    # DFU computed below. Letting numpy derive the bins from each sample's own
+    # range would give each group and each random partition a different grid:
+    # a group whose annotations do not reach both ends of the scale would then
+    # acquire empty bins between populated ones and be scored as multimodal,
+    # biasing its DFU upwards relative to the (scale-spanning) random
+    # partitions it is compared against.
+    _finite = np.asarray(annotations, dtype=float)
+    _finite = _finite[~np.isnan(_finite)]
+    _lo, _hi = float(np.min(_finite)), float(np.max(_finite))
+    if _hi <= _lo:
+        raise ValueError("All annotations are identical; DFU is undefined.")
+    bins = np.linspace(_lo, _hi, n_bins + 1)
 
     annotations = np.array(annotations)
     factor_group: NDArray[Any] = np.array(factor_group)

@@ -92,3 +92,28 @@ class TestDFU(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBinGrid(unittest.TestCase):
+    """A sample that does not span the whole annotation scale must not be
+    scored as multimodal just because numpy spreads the bins over its own
+    range, leaving empty bins between the populated ones."""
+
+    def test_integer_bins_are_range_dependent(self):
+        # Same unimodal shape; the second sample merely reaches the scale ends.
+        narrow = [2] * 30 + [3] * 140 + [4] * 30
+        full = [1] + narrow + [5]
+        self.assertGreater(dfu(narrow, bins=5), 0.0)   # documented artifact
+        self.assertEqual(dfu(full, bins=5), 0.0)
+
+    def test_explicit_edges_are_range_independent(self):
+        edges = np.linspace(1, 5, 6)
+        narrow = [2] * 30 + [3] * 140 + [4] * 30
+        full = [1] + narrow + [5]
+        self.assertEqual(dfu(narrow, bins=edges), 0.0)
+        self.assertEqual(dfu(full, bins=edges), 0.0)
+
+    def test_concentrated_group_not_scored_as_polarized(self):
+        # A tight, clearly unimodal group sitting away from the scale centre.
+        group = [2] * 20 + [3] * 5
+        self.assertEqual(dfu(group, bins=np.linspace(1, 5, 6)), 0.0)

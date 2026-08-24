@@ -1,5 +1,17 @@
 # What's new
 
+### 1.0.6 (24/08/2026)
+- Fix DFU bin grid. `aposteriori_unimodality` now histograms every group and
+  every random partition on one grid fixed over the full annotation scale.
+  Previously each sample was binned over its *own* range, so a group that did
+  not reach both ends of the scale acquired empty bins between populated ones
+  and was scored as multimodal. Because the size-matched random partitions mix
+  all groups and therefore do span the scale, this biased observed DFU upwards
+  relative to the apriori baseline and could invert the sign of the apunim
+  statistic for concentrated groups.
+- `dfu` now accepts an explicit sequence of bin edges in addition to a bin
+  count. Passing an integer keeps the previous, range-dependent behaviour.
+
 ### 1.0.4 (14/07/2026)
 - Invert sign of apunim statistic
 

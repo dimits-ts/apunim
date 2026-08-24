@@ -302,7 +302,9 @@ class TestAposterioriUnimodality(unittest.TestCase):
         Multiple None factor labels across different comments; each None widens
         the size gap between groups and annotations, making the crash more likely.
         """
-        annotations = [1, 1, 2, 2, 1, 1, 5, 4, 4, 5, 5, 5]  # c1  # c2
+        # Both comments must be genuinely bimodal to survive the eligibility
+        # filter; a within-scale spread such as [1, 1, 2, 2, 1, 1] is unimodal.
+        annotations = [1, 1, 1, 5, 5, 5, 5, 5, 5, 1, 1, 1]  # c1  # c2
         factor_group = [
             None,
             "A",
