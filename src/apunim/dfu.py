@@ -16,14 +16,12 @@
 
 # You may contact the author at dim.tsirmpas@aueb.gr
 
-from collections.abc import Collection
+from collections.abc import Collection, Sized, Iterable
 
 import numpy as np
 from numpy.typing import NDArray
 
 
-# code adapted from John Pavlopoulos
-# https://github.com/ipavlopoulos/ndfu/blob/main/src/__init__.py
 def dfu(
     x: Collection[float],
     bins: int | Collection[float],
@@ -79,11 +77,7 @@ def dfu(
         Original code and concept adapted from John Pavlopoulos:
         https://github.com/ipavlopoulos/ndfu
     """
-    if np.ndim(bins) == 0:
-        if bins <= 1:
-            raise ValueError("Number of bins must be at least two.")
-    elif len(bins) < 3:
-        raise ValueError("At least three bin edges (two bins) are required.")
+    _check_bins(bins)
 
     hist = _to_hist(x, bins=bins)
 
@@ -106,7 +100,31 @@ def dfu(
     return float(dfu_stat)
 
 
-def _to_hist(scores: Collection[float], bins: int | Collection[float]) -> NDArray:
+def _check_bins(bins: int | Collection[float]) -> None:
+    if isinstance(bins, int):
+        _check_bins_int(bins)
+    elif isinstance(bins, Sized) and isinstance(bins, Iterable):
+        _check_bins_array(bins)
+    else:
+        raise TypeError(
+            "The 'bins' argument must be an integer or a sequence "
+            f" (list/tuple) of floats, got {type(bins)}"
+        )
+
+
+def _check_bins_int(bins: int) -> None:
+    if bins <= 1:
+        raise ValueError("Number of bins must be at least two.")
+
+
+def _check_bins_array(bins: Collection[float]):
+    if len(bins) < 3:
+        raise ValueError("At least three bin edges (two bins) are required.")
+
+
+def _to_hist(
+    scores: Collection[float], bins: int | Collection[float]
+) -> NDArray:
     """
     Creates a normalised histogram. Used for DFU calculation.
     :param: scores: the ratings (not necessarily discrete)
@@ -118,5 +136,7 @@ def _to_hist(scores: Collection[float], bins: int | Collection[float]) -> NDArra
     if len(scores_array) == 0:
         raise ValueError("Annotation list can not be empty.")
 
-    counts, _ = np.histogram(a=scores_array, bins=bins, density=True)
+    counts, _ = np.histogram(
+        a=scores_array, bins=bins, density=True  # type: ignore
+    )
     return counts
